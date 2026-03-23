@@ -1,0 +1,7 @@
+streamlit
+pandas
+python-dateutil
+openpyxl
+matplotlib
+seaborn
+numpy

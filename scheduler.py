@@ -1,0 +1,201 @@
+import pandas as pd
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta
+
+# PDF Libraries
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib import colors
+from io import BytesIO
+
+
+# -----------------------------
+# LOAD QUALIFICATIONS
+# -----------------------------
+def load_qualifications():
+    df = pd.read_csv("data/qualifications.csv", encoding="latin1")
+    df.columns = df.columns.str.strip().str.lower()
+    return df
+
+
+# -----------------------------
+# LOAD UNITS
+# -----------------------------
+def load_units(qualification_code):
+
+    df = pd.read_csv("data/Units.csv", encoding="latin1")
+
+    df.columns = df.columns.str.strip().str.lower()
+    df["qualification_code"] = df["qualification_code"].astype(str).str.strip()
+
+    qualification_code = str(qualification_code).strip()
+
+    units = df[df["qualification_code"] == qualification_code]
+    units = units.sort_values("sequence")
+
+    return units.reset_index(drop=True)
+
+
+# -----------------------------
+# LOAD PUBLIC HOLIDAYS
+# -----------------------------
+def load_holidays(state):
+
+    df = pd.read_csv("data/public_holidays.csv", encoding="latin1")
+
+    df.columns = df.columns.str.strip().str.lower()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+    df["state"] = df["state"].astype(str).str.strip()
+
+    holidays = df[df["state"] == state]["date"]
+
+    return set(holidays.dropna())
+
+
+# -----------------------------
+# SKIP WEEKENDS + HOLIDAYS
+# -----------------------------
+def get_next_valid_day(date, holidays):
+
+    while date.weekday() >= 5 or date in holidays:
+        date += timedelta(days=1)
+
+    return date
+
+
+# -----------------------------
+# CALCULATE END DATE
+# -----------------------------
+def calculate_end_date(start_date, gap_option, holidays):
+
+    if gap_option == "month":
+        end_date = start_date + relativedelta(months=1)
+
+    elif gap_option == "2weeks":
+        end_date = start_date + timedelta(weeks=2)
+
+    elif gap_option == "3weeks":
+        end_date = start_date + timedelta(weeks=3)
+
+    elif gap_option == "4weeks":
+        end_date = start_date + timedelta(weeks=4)
+
+    else:
+        end_date = start_date + relativedelta(months=1)
+
+    end_date = get_next_valid_day(end_date, holidays)
+
+    return end_date
+
+
+# -----------------------------
+# GENERATE SCHEDULE
+# -----------------------------
+def generate_schedule(start_date, qualification_code, state,
+                      gap_option="month", credit_transfer_units=None):
+
+    if credit_transfer_units is None:
+        credit_transfer_units = []
+
+    start_date = pd.to_datetime(start_date).date()
+
+    units_df = load_units(qualification_code)
+    holidays = load_holidays(state)
+
+    schedule = []
+    current_start = start_date
+
+    for _, row in units_df.iterrows():
+
+        unit_code = row["unit_code"]
+
+        if unit_code in credit_transfer_units:
+            continue
+
+        current_start = get_next_valid_day(current_start, holidays)
+
+        end_date = calculate_end_date(current_start, gap_option, holidays)
+
+        schedule.append({
+            "Start Date": current_start,
+            "Unit Code": row["unit_code"],
+            "Unit Name": row["unit_name"],
+            "End Date": end_date
+        })
+
+        current_start = end_date + timedelta(days=1)
+
+    return pd.DataFrame(schedule)
+
+
+# -----------------------------
+# GENERATE PROFESSIONAL PDF
+# -----------------------------
+def generate_pdf(schedule_df, learner_name, qualification):
+
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4)
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Header
+    title = Paragraph("Traineeship Class Schedule", styles["Title"])
+    elements.append(title)
+
+    elements.append(Spacer(1, 20))
+
+    learner = Paragraph(f"<b>Learner Name:</b> {learner_name}", styles["Normal"])
+    qual = Paragraph(f"<b>Qualification:</b> {qualification}", styles["Normal"])
+
+    elements.append(learner)
+    elements.append(qual)
+
+    elements.append(Spacer(1, 20))
+
+    # ✅ FORMAT DATE SAFELY HERE
+    df = schedule_df.copy()
+    df["Start Date"] = pd.to_datetime(df["Start Date"], dayfirst=True).dt.strftime("%d/%m/%Y")
+    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True).dt.strftime("%d/%m/%Y")
+
+    # Table
+    data = [df.columns.tolist()] + df.values.tolist()
+
+    table = Table(data, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey])
+    ]))
+
+    elements.append(table)
+
+    elements.append(Spacer(1, 40))
+
+    # Signature Section
+    signature_table = Table([
+        ["Trainer Signature", "Learner Signature", "Date"],
+        ["", "", ""]
+    ], colWidths=[200, 200, 200])
+
+    signature_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER")
+    ]))
+
+    elements.append(signature_table)
+
+    doc.build(elements)
+
+    buffer.seek(0)
+
+    return buffer
