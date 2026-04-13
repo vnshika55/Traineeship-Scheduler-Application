@@ -105,9 +105,7 @@ def generate_schedule(start_date, qualification_code, state,
 
     schedule = []
 
-    # -----------------------------
-    # CREDIT TRANSFER UNITS
-    # -----------------------------
+    # Credit Transfer Units
     for _, row in units_df.iterrows():
 
         unit_code = row["unit_code"]
@@ -121,15 +119,11 @@ def generate_schedule(start_date, qualification_code, state,
                 "Type": "Credit Transfer"
             })
 
-    # -----------------------------
-    # START TRAINING NEXT DAY
-    # -----------------------------
+    # Start training next working day
     current_start = start_date + timedelta(days=1)
     current_start = get_next_valid_day(current_start, holidays)
 
-    # -----------------------------
-    # TRAINING UNITS
-    # -----------------------------
+    # Training Units
     for _, row in units_df.iterrows():
 
         unit_code = row["unit_code"]
@@ -153,7 +147,6 @@ def generate_schedule(start_date, qualification_code, state,
 
     schedule_df = pd.DataFrame(schedule)
 
-    # Sort: Credit transfer first
     schedule_df = schedule_df.sort_values(
         by=["Type", "Start Date"],
         ascending=[True, True]
@@ -163,7 +156,7 @@ def generate_schedule(start_date, qualification_code, state,
 
 
 # -----------------------------
-# GENERATE PROFESSIONAL PDF
+# GENERATE PDF
 # -----------------------------
 def generate_pdf(schedule_df, learner_name, qualification):
 
@@ -177,7 +170,6 @@ def generate_pdf(schedule_df, learner_name, qualification):
     styles = getSampleStyleSheet()
     elements = []
 
-    # Header
     title = Paragraph("Traineeship Class Schedule", styles["Title"])
     elements.append(title)
 
@@ -205,15 +197,22 @@ def generate_pdf(schedule_df, learner_name, qualification):
 
     table = Table(data, repeatRows=1)
 
-    table.setStyle(TableStyle([
+    style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
-         [colors.whitesmoke, colors.lightgrey])
-    ]))
+    ]
+
+    # Highlight Credit Transfer rows
+    for i, row in df.iterrows():
+        if row["Type"] == "Credit Transfer":
+            style.append(
+                ("BACKGROUND", (0, i + 1), (-1, i + 1), colors.lightyellow)
+            )
+
+    table.setStyle(TableStyle(style))
 
     elements.append(table)
 
