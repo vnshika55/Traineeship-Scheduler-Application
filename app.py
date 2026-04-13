@@ -51,7 +51,7 @@ credit_transfer_units = st.multiselect(
     unit_codes
 )
 
-# UI info only
+# UI only
 if credit_transfer_units:
     st.info("Credit Transfer Approval Date will be the Start Date selected above.")
 
@@ -87,21 +87,20 @@ if st.button("Generate Schedule"):
     st.write(f"**Qualification:** {qualification_selected}")
     st.write(f"**State:** {state}")
 
-    # Split sections
-    credit_transfer_df = schedule_display[
-        schedule_display["Type"] == "Credit Transfer"
-    ]
+    # ------------------------
+    # Highlight Credit Transfer
+    # ------------------------
+    def highlight_credit_transfer(row):
+        if row["Type"] == "Credit Transfer":
+            return ["background-color: #FFF3CD"] * len(row)
+        return [""] * len(row)
 
-    training_df = schedule_display[
-        schedule_display["Type"] == "Training"
-    ]
+    styled_df = schedule_display.style.apply(
+        highlight_credit_transfer,
+        axis=1
+    )
 
-    if not credit_transfer_df.empty:
-        st.subheader("📘 Credit Transfer Units")
-        st.dataframe(credit_transfer_df, use_container_width=True)
-
-    st.subheader("📗 Class Schedule")
-    st.dataframe(training_df, use_container_width=True)
+    st.dataframe(styled_df, use_container_width=True)
 
     # Validation
     last_end_date = pd.to_datetime(schedule["End Date"]).max()
