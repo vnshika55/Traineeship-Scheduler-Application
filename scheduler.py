@@ -185,31 +185,39 @@ def generate_pdf(schedule_df, learner_name, qualification):
 
     df = schedule_df.copy()
 
-    df["Start Date"] = pd.to_datetime(
-        df["Start Date"]
-    ).dt.strftime("%d/%m/%Y")
+    df["Start Date"] = pd.to_datetime(df["Start Date"]).dt.strftime("%d/%m/%Y")
+    df["End Date"] = pd.to_datetime(df["End Date"]).dt.strftime("%d/%m/%Y")
 
-    df["End Date"] = pd.to_datetime(
-        df["End Date"]
-    ).dt.strftime("%d/%m/%Y")
+    # Wrap long text
+    for col in df.columns:
+        df[col] = df[col].astype(str)
 
     data = [df.columns.tolist()] + df.values.tolist()
 
-    table = Table(data, repeatRows=1)
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[90, 120, 420, 90, 120]  # better column spacing
+    )
 
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
     ]
 
     # Highlight Credit Transfer rows
     for i, row in df.iterrows():
         if row["Type"] == "Credit Transfer":
             style.append(
-                ("BACKGROUND", (0, i + 1), (-1, i + 1), colors.lightyellow)
+                ("BACKGROUND", (0, i + 1), (-1, i + 1), colors.HexColor("#FFF3CD"))
+            )
+            style.append(
+                ("FONTNAME", (0, i + 1), (-1, i + 1), "Helvetica-Bold")
             )
 
     table.setStyle(TableStyle(style))
