@@ -105,12 +105,12 @@ def generate_schedule(start_date, qualification_code, state,
 
     schedule = []
 
-    # Credit Transfer Units
+    # -----------------------------
+    # CREDIT TRANSFER UNITS
+    # -----------------------------
     for _, row in units_df.iterrows():
 
-        unit_code = row["unit_code"]
-
-        if unit_code in credit_transfer_units:
+        if row["unit_code"] in credit_transfer_units:
             schedule.append({
                 "Start Date": start_date,
                 "Unit Code": row["unit_code"],
@@ -119,16 +119,24 @@ def generate_schedule(start_date, qualification_code, state,
                 "Type": "Credit Transfer"
             })
 
-    # Start training next working day
-    current_start = start_date + timedelta(days=1)
+    # -----------------------------
+    # START DATE LOGIC
+    # -----------------------------
+    if credit_transfer_units:
+        # start next day only if CT exists
+        current_start = start_date + timedelta(days=1)
+    else:
+        # start same day if no CT
+        current_start = start_date
+
     current_start = get_next_valid_day(current_start, holidays)
 
-    # Training Units
+    # -----------------------------
+    # TRAINING UNITS
+    # -----------------------------
     for _, row in units_df.iterrows():
 
-        unit_code = row["unit_code"]
-
-        if unit_code in credit_transfer_units:
+        if row["unit_code"] in credit_transfer_units:
             continue
 
         current_start = get_next_valid_day(current_start, holidays)
@@ -188,16 +196,12 @@ def generate_pdf(schedule_df, learner_name, qualification):
     df["Start Date"] = pd.to_datetime(df["Start Date"]).dt.strftime("%d/%m/%Y")
     df["End Date"] = pd.to_datetime(df["End Date"]).dt.strftime("%d/%m/%Y")
 
-    # Wrap long text
-    for col in df.columns:
-        df[col] = df[col].astype(str)
-
     data = [df.columns.tolist()] + df.values.tolist()
 
     table = Table(
         data,
         repeatRows=1,
-        colWidths=[90, 120, 420, 90, 120]  # better column spacing
+        colWidths=[90, 120, 420, 90, 120]
     )
 
     style = [
@@ -206,11 +210,9 @@ def generate_pdf(schedule_df, learner_name, qualification):
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
     ]
 
-    # Highlight Credit Transfer rows
     for i, row in df.iterrows():
         if row["Type"] == "Credit Transfer":
             style.append(
