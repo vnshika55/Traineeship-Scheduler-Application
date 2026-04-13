@@ -104,8 +104,32 @@ def generate_schedule(start_date, qualification_code, state,
     holidays = load_holidays(state)
 
     schedule = []
-    current_start = start_date
 
+    # -----------------------------
+    # CREDIT TRANSFER UNITS
+    # -----------------------------
+    for _, row in units_df.iterrows():
+
+        unit_code = row["unit_code"]
+
+        if unit_code in credit_transfer_units:
+            schedule.append({
+                "Start Date": start_date,
+                "Unit Code": row["unit_code"],
+                "Unit Name": row["unit_name"],
+                "End Date": start_date,
+                "Type": "Credit Transfer"
+            })
+
+    # -----------------------------
+    # START TRAINING NEXT DAY
+    # -----------------------------
+    current_start = start_date + timedelta(days=1)
+    current_start = get_next_valid_day(current_start, holidays)
+
+    # -----------------------------
+    # TRAINING UNITS
+    # -----------------------------
     for _, row in units_df.iterrows():
 
         unit_code = row["unit_code"]
@@ -121,12 +145,21 @@ def generate_schedule(start_date, qualification_code, state,
             "Start Date": current_start,
             "Unit Code": row["unit_code"],
             "Unit Name": row["unit_name"],
-            "End Date": end_date
+            "End Date": end_date,
+            "Type": "Training"
         })
 
         current_start = end_date + timedelta(days=1)
 
-    return pd.DataFrame(schedule)
+    schedule_df = pd.DataFrame(schedule)
+
+    # Sort: Credit transfer first
+    schedule_df = schedule_df.sort_values(
+        by=["Type", "Start Date"],
+        ascending=[True, True]
+    )
+
+    return schedule_df.reset_index(drop=True)
 
 
 # -----------------------------
@@ -158,12 +191,16 @@ def generate_pdf(schedule_df, learner_name, qualification):
 
     elements.append(Spacer(1, 20))
 
-    # ✅ FORMAT DATE SAFELY HERE
     df = schedule_df.copy()
-    df["Start Date"] = pd.to_datetime(df["Start Date"], dayfirst=True).dt.strftime("%d/%m/%Y")
-    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True).dt.strftime("%d/%m/%Y")
 
-    # Table
+    df["Start Date"] = pd.to_datetime(
+        df["Start Date"]
+    ).dt.strftime("%d/%m/%Y")
+
+    df["End Date"] = pd.to_datetime(
+        df["End Date"]
+    ).dt.strftime("%d/%m/%Y")
+
     data = [df.columns.tolist()] + df.values.tolist()
 
     table = Table(data, repeatRows=1)
@@ -174,14 +211,14 @@ def generate_pdf(schedule_df, learner_name, qualification):
         ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey])
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.whitesmoke, colors.lightgrey])
     ]))
 
     elements.append(table)
 
     elements.append(Spacer(1, 40))
 
-    # Signature Section
     signature_table = Table([
         ["Trainer Signature", "Learner Signature", "Date"],
         ["", "", ""]
