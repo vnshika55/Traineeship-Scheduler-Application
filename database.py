@@ -36,6 +36,25 @@ def create_tables():
     conn.close()
 
 
+# CREATE DEFAULT ADMIN FOR DEPLOYMENT
+def create_default_admin():
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users")
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.execute(
+            "INSERT INTO users (email,password,role) VALUES (?,?,?)",
+            ("admin@company.com", "admin123", "admin")
+        )
+        conn.commit()
+
+    conn.close()
+
+
 # ---------------- USERS ----------------
 
 def add_user(email, password, role):
