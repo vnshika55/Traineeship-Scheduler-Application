@@ -13,6 +13,7 @@ from database import *
 st.set_page_config(page_title="Traineeship Scheduler", layout="wide")
 
 create_tables()
+create_default_admin()
 
 # SESSION
 if "logged_in" not in st.session_state:
@@ -25,7 +26,7 @@ if "role" not in st.session_state:
 # LOGIN
 def login():
 
-    st.title("Login")
+    st.title("Traineeship Scheduler Login")
 
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
