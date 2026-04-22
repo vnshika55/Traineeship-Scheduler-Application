@@ -10,7 +10,6 @@ def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # USERS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,67 +20,25 @@ def create_tables():
     )
     """)
 
-    # IMPORTANT: recreate schedules table to avoid schema mismatch
-    cursor.execute("DROP TABLE IF EXISTS schedules")
+    conn.commit()
+    conn.close()
 
-    cursor.execute("""
-    CREATE TABLE schedules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        learner TEXT,
-        qualification TEXT,
-        state TEXT,
-        created_by TEXT,
-        created_at TEXT,
-        schedule_csv TEXT
+
+def add_user(email, password, role):
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO users (email,password,role) VALUES (?,?,?)",
+        (email, password, role)
     )
-    """)
 
     conn.commit()
     conn.close()
 
 
-def create_default_admin():
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM users")
-    user = cursor.fetchone()
-
-    if not user:
-        cursor.execute(
-            "INSERT INTO users (email,password,role) VALUES (?,?,?)",
-            ("admin@company.com", "admin123", "admin")
-        )
-        conn.commit()
-
-    conn.close()
-
-
-# USERS
-def add_user(email, password, role):
-
-    email = email.strip().lower()
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(
-            "INSERT INTO users (email,password,role) VALUES (?,?,?)",
-            (email, password, role)
-        )
-        conn.commit()
-        return True
-    except:
-        return False
-    finally:
-        conn.close()
-
-
 def get_user(email, password):
-
-    email = email.strip().lower()
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -103,10 +60,12 @@ def get_users():
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM users")
-    users = cursor.fetchall()
+
+    data = cursor.fetchall()
 
     conn.close()
-    return users
+
+    return data
 
 
 def toggle_user(user_id):
@@ -128,75 +87,10 @@ def delete_user(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
-
-    conn.commit()
-    conn.close()
-
-
-# SCHEDULES
-def save_schedule(learner, qualification, state, user, df):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    csv_data = df.to_csv(index=False)
-
-    cursor.execute("""
-    INSERT INTO schedules 
-    (learner, qualification, state, created_by, created_at, schedule_csv)
-    VALUES (?,?,?,?,datetime('now'),?)
-    """, (
-        learner,
-        qualification,
-        state,
-        user,
-        csv_data
-    ))
-
-    conn.commit()
-    conn.close()
-
-
-def get_schedules():
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    SELECT id, learner, qualification, state, created_by, created_at
-    FROM schedules
-    ORDER BY id DESC
-    """)
-
-    data = cursor.fetchall()
-    conn.close()
-
-    return data
-
-
-def get_schedule(schedule_id):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
     cursor.execute(
-        "SELECT schedule_csv FROM schedules WHERE id=?",
-        (schedule_id,)
+        "DELETE FROM users WHERE id=?",
+        (user_id,)
     )
-
-    data = cursor.fetchone()
-    conn.close()
-
-    return data[0]
-
-
-def delete_schedule(schedule_id):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM schedules WHERE id=?", (schedule_id,))
 
     conn.commit()
     conn.close()
