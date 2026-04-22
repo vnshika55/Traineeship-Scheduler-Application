@@ -172,10 +172,13 @@ def scheduler_ui():
             qualification_selected
         )
 
+        # DOWNLOAD WITH LEARNER NAME
+        file_name = f"{learner_name.strip().replace(' ', '_')}_schedule.pdf"
+
         st.download_button(
             "Download PDF",
             pdf_file,
-            file_name="schedule.pdf"
+            file_name=file_name
         )
 
 
