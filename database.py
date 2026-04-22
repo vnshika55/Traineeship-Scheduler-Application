@@ -10,6 +10,7 @@ def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # USERS TABLE
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,8 +21,11 @@ def create_tables():
     )
     """)
 
+    # IMPORTANT: recreate schedules table to avoid schema mismatch
+    cursor.execute("DROP TABLE IF EXISTS schedules")
+
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS schedules (
+    CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         learner TEXT,
         qualification TEXT,
