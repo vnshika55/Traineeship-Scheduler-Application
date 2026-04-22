@@ -144,6 +144,13 @@ def scheduler_ui():
         unit_codes
     )
 
+    # CREDIT TRANSFER INFO
+    if credit_transfer_units:
+        st.info(
+            "Start date is considered as Credit Transfer approval date. "
+            "Training will begin after credit transfer units."
+        )
+
     if st.button("Generate Schedule"):
 
         schedule = generate_schedule(
@@ -153,6 +160,16 @@ def scheduler_ui():
             gap_option,
             credit_transfer_units
         )
+
+        # CHECK CONTRACT END DATE
+        last_date = pd.to_datetime(schedule["End Date"]).max()
+        contract_end = pd.to_datetime(contract_end_date)
+
+        if last_date > contract_end:
+            st.warning(
+                "⚠️ Generated schedule exceeds Training Contract End Date. "
+                "Please adjust start date or gap."
+            )
 
         schedule_display = schedule.copy()
 
@@ -172,7 +189,6 @@ def scheduler_ui():
             qualification_selected
         )
 
-        # DOWNLOAD WITH LEARNER NAME
         file_name = f"{learner_name.strip().replace(' ', '_')}_schedule.pdf"
 
         st.download_button(
