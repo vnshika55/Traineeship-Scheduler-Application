@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
-# PDF Libraries
+# PDF
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import landscape, A4
@@ -38,7 +38,7 @@ def load_units(qualification_code):
 
 
 # -----------------------------
-# LOAD PUBLIC HOLIDAYS
+# LOAD HOLIDAYS
 # -----------------------------
 def load_holidays(state):
 
@@ -54,7 +54,7 @@ def load_holidays(state):
 
 
 # -----------------------------
-# SKIP WEEKENDS + HOLIDAYS
+# SKIP WEEKENDS
 # -----------------------------
 def get_next_valid_day(date, holidays):
 
@@ -106,7 +106,7 @@ def generate_schedule(start_date, qualification_code, state,
     schedule = []
 
     # -----------------------------
-    # CREDIT TRANSFER UNITS
+    # CREDIT TRANSFER
     # -----------------------------
     for _, row in units_df.iterrows():
 
@@ -123,10 +123,8 @@ def generate_schedule(start_date, qualification_code, state,
     # START DATE LOGIC
     # -----------------------------
     if credit_transfer_units:
-        # start next day only if CT exists
         current_start = start_date + timedelta(days=1)
     else:
-        # start same day if no CT
         current_start = start_date
 
     current_start = get_next_valid_day(current_start, holidays)
@@ -218,27 +216,10 @@ def generate_pdf(schedule_df, learner_name, qualification):
             style.append(
                 ("BACKGROUND", (0, i + 1), (-1, i + 1), colors.HexColor("#FFF3CD"))
             )
-            style.append(
-                ("FONTNAME", (0, i + 1), (-1, i + 1), "Helvetica-Bold")
-            )
 
     table.setStyle(TableStyle(style))
 
     elements.append(table)
-
-    elements.append(Spacer(1, 40))
-
-    signature_table = Table([
-        ["Trainer Signature", "Learner Signature", "Date"],
-        ["", "", ""]
-    ], colWidths=[200, 200, 200])
-
-    signature_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER")
-    ]))
-
-    elements.append(signature_table)
 
     doc.build(elements)
 
