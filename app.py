@@ -148,6 +148,7 @@ def scheduler_ui():
             credit_transfer_units
         )
 
+        # SAVE GENERATED SCHEDULE
         save_schedule(
             learner_name,
             qualification_selected,
@@ -204,7 +205,11 @@ def schedule_history():
 
             schedule_json = get_schedule(schedule_id)
 
-            df = pd.read_json(schedule_json)
+            if not schedule_json:
+                st.warning("No schedule data")
+                continue
+
+            df = pd.read_json(schedule_json, convert_dates=False)
 
             st.dataframe(df, use_container_width=True)
 
