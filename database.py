@@ -28,7 +28,7 @@ def create_tables():
         state TEXT,
         created_by TEXT,
         created_at TEXT,
-        schedule_json TEXT
+        schedule_csv TEXT
     )
     """)
 
@@ -36,7 +36,6 @@ def create_tables():
     conn.close()
 
 
-# CREATE DEFAULT ADMIN FOR DEPLOYMENT
 def create_default_admin():
 
     conn = get_connection()
@@ -55,8 +54,7 @@ def create_default_admin():
     conn.close()
 
 
-# ---------------- USERS ----------------
-
+# USERS
 def add_user(email, password, role):
 
     email = email.strip().lower()
@@ -101,11 +99,9 @@ def get_users():
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM users")
-
     users = cursor.fetchall()
 
     conn.close()
-
     return users
 
 
@@ -128,32 +124,30 @@ def delete_user(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "DELETE FROM users WHERE id=?",
-        (user_id,)
-    )
+    cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
 
     conn.commit()
     conn.close()
 
 
-# ---------------- SCHEDULE ----------------
-
-def save_schedule(learner, qualification, state, user, schedule_df):
+# SCHEDULES
+def save_schedule(learner, qualification, state, user, df):
 
     conn = get_connection()
     cursor = conn.cursor()
 
+    csv_data = df.to_csv(index=False)
+
     cursor.execute("""
     INSERT INTO schedules 
-    (learner, qualification, state, created_by, created_at, schedule_json)
+    (learner, qualification, state, created_by, created_at, schedule_csv)
     VALUES (?,?,?,?,datetime('now'),?)
     """, (
         learner,
         qualification,
         state,
         user,
-        schedule_df.to_json()
+        csv_data
     ))
 
     conn.commit()
@@ -172,7 +166,6 @@ def get_schedules():
     """)
 
     data = cursor.fetchall()
-
     conn.close()
 
     return data
@@ -184,12 +177,11 @@ def get_schedule(schedule_id):
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT schedule_json FROM schedules WHERE id=?",
+        "SELECT schedule_csv FROM schedules WHERE id=?",
         (schedule_id,)
     )
 
     data = cursor.fetchone()
-
     conn.close()
 
     return data[0]
@@ -200,10 +192,7 @@ def delete_schedule(schedule_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "DELETE FROM schedules WHERE id=?",
-        (schedule_id,)
-    )
+    cursor.execute("DELETE FROM schedules WHERE id=?", (schedule_id,))
 
     conn.commit()
     conn.close()
