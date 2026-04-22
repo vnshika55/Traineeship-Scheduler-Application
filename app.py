@@ -1,198 +1,230 @@
-import sqlite3
+import streamlit as st
+import pandas as pd
+from io import StringIO
+
+from scheduler import (
+    generate_schedule,
+    load_qualifications,
+    load_units,
+    generate_pdf
+)
+
+from database import *
+
+st.set_page_config(page_title="Traineeship Scheduler", layout="wide")
+
+create_tables()
+create_default_admin()
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "role" not in st.session_state:
+    st.session_state.role = None
 
 
-def get_connection():
-    return sqlite3.connect("traineeship.db", check_same_thread=False)
+# LOGIN
+def login():
+
+    st.title("Traineeship Scheduler Login")
+
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+
+        user = get_user(email, password)
+
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.user = user[1]
+            st.session_state.role = user[3]
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
 
 
-def create_tables():
+# ADMIN PANEL
+def admin_panel():
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    st.title("Admin Panel")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        password TEXT,
-        role TEXT,
-        active INTEGER DEFAULT 1
+    col1, col2, col3 = st.columns(3)
+
+    email = col1.text_input("Email").strip().lower()
+    password = col2.text_input("Password")
+    role = col3.selectbox("Role", ["user", "admin"])
+
+    if st.button("Add User"):
+
+        success = add_user(email, password, role)
+
+        if success:
+            st.success("User Added")
+            st.rerun()
+        else:
+            st.error("User already exists")
+
+    st.divider()
+
+    users = get_users()
+
+    for user in users:
+
+        col1, col2, col3, col4, col5 = st.columns([3,1,1,1,1])
+
+        col1.write(user[1])
+        col2.write(user[3])
+        col3.write("Active" if user[4] else "Disabled")
+
+        if col4.button("Toggle", key=f"toggle{user[0]}"):
+            toggle_user(user[0])
+            st.rerun()
+
+        if col5.button("Delete", key=f"delete{user[0]}"):
+            delete_user(user[0])
+            st.rerun()
+
+
+# SCHEDULER
+def scheduler_ui():
+
+    st.title("Traineeship Scheduler")
+
+    qual_df = load_qualifications()
+
+    qualification_display = {
+        f"{row['qualification_code']} - {row['qualification_name']}":
+        row['qualification_code']
+        for _, row in qual_df.iterrows()
+    }
+
+    learner_name = st.text_input("Learner Name")
+    state = st.selectbox("State", ["NSW", "ACT"])
+    qualification_selected = st.selectbox("Qualification", list(qualification_display.keys()))
+
+    gap_option = st.selectbox(
+        "Gap Between Units",
+        ["2weeks", "3weeks", "4weeks", "month"]
     )
-    """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS schedules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        learner TEXT,
-        qualification TEXT,
-        state TEXT,
-        created_by TEXT,
-        created_at TEXT,
-        schedule_csv TEXT
+    qualification_code = qualification_display[qualification_selected]
+
+    start_date = st.date_input("Start Date")
+    contract_end_date = st.date_input("Training Contract End Date")
+
+    units_df = load_units(qualification_code)
+    unit_codes = units_df["unit_code"].tolist()
+
+    credit_transfer_units = st.multiselect(
+        "Credit Transfer Units",
+        unit_codes
     )
-    """)
 
-    conn.commit()
-    conn.close()
+    if st.button("Generate Schedule"):
 
-
-def create_default_admin():
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM users")
-    user = cursor.fetchone()
-
-    if not user:
-        cursor.execute(
-            "INSERT INTO users (email,password,role) VALUES (?,?,?)",
-            ("admin@company.com", "admin123", "admin")
+        schedule = generate_schedule(
+            start_date,
+            qualification_code,
+            state,
+            gap_option,
+            credit_transfer_units
         )
-        conn.commit()
 
-    conn.close()
-
-
-# USERS
-def add_user(email, password, role):
-
-    email = email.strip().lower()
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(
-            "INSERT INTO users (email,password,role) VALUES (?,?,?)",
-            (email, password, role)
+        save_schedule(
+            learner_name,
+            qualification_selected,
+            state,
+            st.session_state.user,
+            schedule
         )
-        conn.commit()
-        return True
-    except:
-        return False
-    finally:
-        conn.close()
+
+        st.dataframe(schedule, use_container_width=True)
+
+        st.download_button(
+            "Download CSV",
+            schedule.to_csv(index=False),
+            file_name=f"{learner_name}_schedule.csv"
+        )
+
+        pdf = generate_pdf(schedule, learner_name, qualification_selected)
+
+        st.download_button(
+            "Download PDF",
+            pdf,
+            file_name=f"{learner_name}_schedule.pdf"
+        )
 
 
-def get_user(email, password):
+# HISTORY
+def schedule_history():
 
-    email = email.strip().lower()
+    st.title("Schedule History")
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    schedules = get_schedules()
 
-    cursor.execute(
-        "SELECT * FROM users WHERE email=? AND password=? AND active=1",
-        (email, password)
-    )
+    for row in schedules:
 
-    user = cursor.fetchone()
-    conn.close()
+        schedule_id = row[0]
 
-    return user
+        with st.expander(
+            f"{row[1]} | {row[2]} | {row[4]} | {row[5]}"
+        ):
 
+            csv_data = get_schedule(schedule_id)
 
-def get_users():
+            df = pd.read_csv(StringIO(csv_data))
 
-    conn = get_connection()
-    cursor = conn.cursor()
+            st.dataframe(df, use_container_width=True)
 
-    cursor.execute("SELECT * FROM users")
-    users = cursor.fetchall()
+            col1, col2, col3 = st.columns(3)
 
-    conn.close()
-    return users
+            col1.download_button(
+                "Download CSV",
+                df.to_csv(index=False),
+                file_name=f"{row[1]}_schedule.csv",
+                key=f"csv{schedule_id}"
+            )
 
+            pdf = generate_pdf(df, row[1], row[2])
 
-def toggle_user(user_id):
+            col2.download_button(
+                "Download PDF",
+                pdf,
+                file_name=f"{row[1]}_schedule.pdf",
+                key=f"pdf{schedule_id}"
+            )
 
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "UPDATE users SET active = NOT active WHERE id=?",
-        (user_id,)
-    )
-
-    conn.commit()
-    conn.close()
-
-
-def delete_user(user_id):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
-
-    conn.commit()
-    conn.close()
+            if st.session_state.role == "admin":
+                if col3.button("Delete", key=f"delete{schedule_id}"):
+                    delete_schedule(schedule_id)
+                    st.rerun()
 
 
-# SCHEDULES
-def save_schedule(learner, qualification, state, user, df):
+# MAIN
+if not st.session_state.logged_in:
+    login()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+else:
 
-    csv_data = df.to_csv(index=False)
+    menu = ["Scheduler", "Schedule History"]
 
-    cursor.execute("""
-    INSERT INTO schedules 
-    (learner, qualification, state, created_by, created_at, schedule_csv)
-    VALUES (?,?,?,?,datetime('now'),?)
-    """, (
-        learner,
-        qualification,
-        state,
-        user,
-        csv_data
-    ))
+    if st.session_state.role == "admin":
+        menu.append("Admin Panel")
 
-    conn.commit()
-    conn.close()
+    menu.append("Logout")
 
+    choice = st.sidebar.selectbox("Menu", menu)
 
-def get_schedules():
+    if choice == "Scheduler":
+        scheduler_ui()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    elif choice == "Schedule History":
+        schedule_history()
 
-    cursor.execute("""
-    SELECT id, learner, qualification, state, created_by, created_at
-    FROM schedules
-    ORDER BY id DESC
-    """)
+    elif choice == "Admin Panel":
+        admin_panel()
 
-    data = cursor.fetchall()
-    conn.close()
-
-    return data
-
-
-def get_schedule(schedule_id):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT schedule_csv FROM schedules WHERE id=?",
-        (schedule_id,)
-    )
-
-    data = cursor.fetchone()
-    conn.close()
-
-    return data[0]
-
-
-def delete_schedule(schedule_id):
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM schedules WHERE id=?", (schedule_id,))
-
-    conn.commit()
-    conn.close()
+    elif choice == "Logout":
+        st.session_state.logged_in = False
+        st.rerun()
