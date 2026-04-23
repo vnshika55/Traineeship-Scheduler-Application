@@ -23,22 +23,17 @@ def create_tables():
     conn.close()
 
 
-# DEFAULT ADMIN
 def create_default_admin():
     conn = get_connection()
     cursor = conn.cursor()
 
-    email = "admin@admin.com"
-    password = "admin123"
+    # DELETE OLD ADMIN (important fix)
+    cursor.execute("DELETE FROM users WHERE email='admin@admin.com'")
 
-    cursor.execute("SELECT * FROM users WHERE email=?", (email,))
-    user = cursor.fetchone()
-
-    if not user:
-        cursor.execute(
-            "INSERT INTO users (email,password,role,active) VALUES (?,?,?,1)",
-            (email, password, "admin")
-        )
+    cursor.execute("""
+    INSERT INTO users (email,password,role,active)
+    VALUES (?,?,?,1)
+    """, ("admin@admin.com", "admin123", "admin"))
 
     conn.commit()
     conn.close()
@@ -46,15 +41,12 @@ def create_default_admin():
 
 def add_user(email, password, role):
 
-    email = email.strip().lower()
-    password = password.strip()
-
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         "INSERT INTO users (email,password,role) VALUES (?,?,?)",
-        (email, password, role)
+        (email.strip().lower(), password.strip(), role)
     )
 
     conn.commit()
@@ -63,15 +55,12 @@ def add_user(email, password, role):
 
 def get_user(email, password):
 
-    email = email.strip().lower()
-    password = password.strip()
-
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         "SELECT * FROM users WHERE email=? AND password=? AND active=1",
-        (email, password)
+        (email.strip().lower(), password.strip())
     )
 
     user = cursor.fetchone()
