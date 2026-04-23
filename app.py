@@ -13,6 +13,7 @@ from database import *
 st.set_page_config(page_title="Traineeship Scheduler", layout="wide")
 
 create_tables()
+create_default_admin()
 
 # -------------------------
 # SESSION
@@ -144,7 +145,6 @@ def scheduler_ui():
         unit_codes
     )
 
-    # CREDIT TRANSFER INFO
     if credit_transfer_units:
         st.info(
             "Start date is considered as Credit Transfer approval date. "
@@ -161,7 +161,6 @@ def scheduler_ui():
             credit_transfer_units
         )
 
-        # CHECK CONTRACT END DATE
         last_date = pd.to_datetime(schedule["End Date"]).max()
         contract_end = pd.to_datetime(contract_end_date)
 
