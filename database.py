@@ -6,7 +6,6 @@ def get_connection():
 
 
 def create_tables():
-
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -24,23 +23,21 @@ def create_tables():
     conn.close()
 
 
-# CREATE DEFAULT ADMIN
+# DEFAULT ADMIN
 def create_default_admin():
-
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT * FROM users WHERE email=?",
-        ("admin@admin.com",)
-    )
+    email = "admin@admin.com"
+    password = "admin123"
 
+    cursor.execute("SELECT * FROM users WHERE email=?", (email,))
     user = cursor.fetchone()
 
     if not user:
         cursor.execute(
             "INSERT INTO users (email,password,role,active) VALUES (?,?,?,1)",
-            ("admin@admin.com", "admin123", "admin")
+            (email, password, "admin")
         )
 
     conn.commit()
@@ -48,6 +45,9 @@ def create_default_admin():
 
 
 def add_user(email, password, role):
+
+    email = email.strip().lower()
+    password = password.strip()
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -62,6 +62,9 @@ def add_user(email, password, role):
 
 
 def get_user(email, password):
+
+    email = email.strip().lower()
+    password = password.strip()
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -83,11 +86,9 @@ def get_users():
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM users")
-
     data = cursor.fetchall()
 
     conn.close()
-
     return data
 
 
