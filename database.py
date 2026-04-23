@@ -24,6 +24,29 @@ def create_tables():
     conn.close()
 
 
+# CREATE DEFAULT ADMIN
+def create_default_admin():
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT * FROM users WHERE email=?",
+        ("admin@admin.com",)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.execute(
+            "INSERT INTO users (email,password,role,active) VALUES (?,?,?,1)",
+            ("admin@admin.com", "admin123", "admin")
+        )
+
+    conn.commit()
+    conn.close()
+
+
 def add_user(email, password, role):
 
     conn = get_connection()
