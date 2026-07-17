@@ -91,23 +91,7 @@ if st.button("Generate Schedule"):
 
     schedule_display = schedule.copy()
 
-    schedule_display["Start Date"] = pd.to_datetime(
-        schedule_display["Start Date"]
-    ).dt.strftime("%d/%m/%Y")
 
-    schedule_display["End Date"] = pd.to_datetime(
-        schedule_display["End Date"]
-    ).dt.strftime("%d/%m/%Y")
-
-    st.dataframe(schedule_display, use_container_width=True)
-
-    pdf_file = generate_pdf(
-        schedule,
-        learner_name,
-        qualification_selected
-    )
-
-    file_name = f"{learner_name.strip().replace(' ', '_')}_schedule.pdf"
 
     st.download_button(
         "Download PDF",
